@@ -2,6 +2,8 @@ Chat Room
 =========
 
 A basic chatroom in Python that can connect with clients over LAN
+<br>
+Tkinter interface available only for *client.py*
 
 Modules:
 --------
