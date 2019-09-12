@@ -1,5 +1,5 @@
 import socket
-import threading as thread
+from threading import Thread
 
 ServerSide = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 ServerSide.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -7,25 +7,41 @@ ServerSide.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 ServerSide.bind(("0.0.0.0", 8080))
 clientlist = []
 
-def cthread(client, name):
+def exceptHandler(client):
+    leaveMsg = "***" + name + "has left the chat ***"
+    print(leaveMsg)
 
-    breakit = False
+    if client in clientlist:
+        clientlist.remove(client)
+
+    for i in clientlist:
+        i[1].send(leaveMsg.encode('ascii'))
+
+    return True
+
+def Clientthread(client, name):
+    breakLoop = False
+    msg = ''
+
     while True:
         try:
-            msg = client.recv(1024)
-            msg = msg.decode('ascii')
+            while msg == '':
+                msg = client.recv(1024)
+                msg = msg.decode('ascii')
             sendmsg = name + ' : ' + msg
 
-        except:
-            sendmsg = "*** " + name + " has left the chat ***"
-            clientlist.remove([name, client])
-            breakit = True
+        except ConnectionResetError:
+            breakLoop = exceptHandler([name, client])
+
+        for i in clientlist:
+            try:
+                i[1].send(sendmsg.encode('ascii'))
+                
+            except BrokenPipeError:
+                breakLoop = exceptHandler(i)
 
         print(sendmsg)
-        for i in clientlist:
-            i[1].send(sendmsg.encode('ascii'))
-
-        if breakit == True:
+        if breakLoop == True:
             break
 
 
@@ -45,5 +61,12 @@ while True:
     print("--- Client connected :", name, "---")
     print()
 
-    t1 = thread.Thread(target=cthread, args=(ClientSide, name))
-    t1.start()
+    ClientHandler = Thread(target=Clientthread, args=(ClientSide, name))
+    ClientHandler.start()
+
+    print(len(clientlist))
+    if len(clientlist) == 0:
+        print("Server Closed - no availabe clients")
+        break
+
+ServerSide.close()
